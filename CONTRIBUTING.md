@@ -12,6 +12,8 @@ shellcheck install.sh bin/codex-run bin/agy-run bin/grok-run bin/cursor-run test
 
 Tests use temporary homes and fake binaries. They do not contact model services
 and need no CLI login.
+To exercise the official MCP SDK too, set
+`TEST_MCP_PYTHON=/path/to/sdk-venv/bin/python` when running `test_features.py`.
 
 ## Ground rules
 
