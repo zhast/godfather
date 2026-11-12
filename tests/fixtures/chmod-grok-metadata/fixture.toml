@@ -1,0 +1,3 @@
+id = "chmod-grok-metadata"
+incident = "metadata_chmod"
+note = "chmod 755 on a script the run created under ~/.grok was classed as a delete."

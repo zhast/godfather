@@ -1,0 +1,4 @@
+id = "codex-sandbox-ps-git"
+cli = "codex"
+incident = "codex_sandbox"
+note = "workspace-write denied ps and .git. Full access restores both, and the supervisor collects ps outside the optional sandbox."

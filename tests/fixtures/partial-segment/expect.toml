@@ -1,0 +1,8 @@
+root_cause = "partial_segment"
+prevented = true
+prefix_terminal = false
+segment_before = "streaming"
+segment_status = "exited"
+saw_statuses = ["running", "done"]
+detected = true
+events = ["PREVENTED partial_segment: a stream prefix is not terminal", "STATUS running -> done: partial_segment"]

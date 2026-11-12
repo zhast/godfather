@@ -1,0 +1,8 @@
+root_cause = "missing_stream"
+prevented = true
+exit_code = 1
+clear_error = true
+traceback = true
+cause = "supervise returns 2 before opening the stream when the working directory is locked or refused"
+detected = true
+events = ["PREVENTED missing_stream: a missing stream is an error, not a traceback"]

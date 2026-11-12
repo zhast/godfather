@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+import sys
+from agent_oversight import nudge_main
+sys.exit(nudge_main(wait_for_completion=False))

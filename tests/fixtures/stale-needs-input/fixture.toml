@@ -1,0 +1,3 @@
+id = "stale-needs-input"
+incident = "stale_input"
+note = "polish_final remained needs_input for 35 minutes after successful exit and final report."

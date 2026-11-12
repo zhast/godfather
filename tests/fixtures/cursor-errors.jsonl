@@ -1,0 +1,6 @@
+{"type":"error","error":{"statusCode":401,"message":"Not logged in"},"expected":"auth"}
+{"type":"result","subtype":"error","is_error":true,"error":{"statusCode":402,"message":"spend limit reached"},"expected":"quota"}
+{"type":"error","error":{"code":"RESOURCE_EXHAUSTED"},"expected":"quota"}
+{"type":"error","message":"limit reached","expected":"quota"}
+{"type":"error","error":{"statusCode":503,"message":"Server overloaded"},"expected":"capacity"}
+{"type":"error","error":{"code":"ECONNRESET"},"expected":"network"}

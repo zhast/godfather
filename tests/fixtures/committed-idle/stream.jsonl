@@ -1,0 +1,3 @@
+{"type":"tool_call","toolName":"shell","toolCallId":"c","status":"completed","rawInput":{"command":"git commit -m done"}}
+{"type":"text","data":"Committed and tested."}
+{"type":"end","stopReason":"stop"}

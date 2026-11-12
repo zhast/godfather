@@ -1,0 +1,3 @@
+#!/usr/bin/env python3
+from agent_oversight import watch_main
+watch_main()

@@ -1,0 +1,3 @@
+id = "missing-stream"
+incident = "missing_stream"
+note = "CWD=~/GitHub/search-research grok-run exited 2 with no stream file. supervise returns 2 before opening the stream when that working directory is locked or refused. grok-result then crashed with FileNotFoundError."

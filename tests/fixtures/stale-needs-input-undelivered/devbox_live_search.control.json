@@ -1,0 +1,45 @@
+{
+  "questions": [
+    {
+      "effect": null,
+      "id": "devbox_live_search-q0",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": false,
+      "delivered": true,
+      "answer": "redacted",
+      "asked_at": 1792530438.537382,
+      "answered_at": 1792531000.709693
+    },
+    {
+      "effect": {
+        "targets": [
+          "redacted"
+        ],
+        "effect": "redacted",
+        "verdict": "redacted",
+        "cwd": "redacted",
+        "command": [
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted"
+        ]
+      },
+      "id": "devbox_live_search-q1",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": true,
+      "delivered": false,
+      "answer": null,
+      "asked_at": 1792531478.0161548
+    }
+  ]
+}

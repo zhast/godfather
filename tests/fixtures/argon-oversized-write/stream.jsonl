@@ -1,0 +1,3 @@
+{"type":"tool_call","toolName":"write","rawInput":{"content":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}}
+{"type":"ERROR_MESSAGE","error":"broken stream"}
+{"type":"tool_call","rawInput":{"content":"partial file

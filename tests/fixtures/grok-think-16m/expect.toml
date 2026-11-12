@@ -1,0 +1,10 @@
+failure_class = "stall_thinking"
+root_cause = "start_to_first_tool"
+remedy = "nudge_tool"
+classified_by_secs = 180
+healthy_through_secs = 150
+saw_statuses = ["running", "retrying"]
+kill = false
+prevented = false
+detected = true
+events = ["STATUS running -> retrying: start_to_first_tool"]

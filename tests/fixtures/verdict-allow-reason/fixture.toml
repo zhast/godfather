@@ -1,0 +1,3 @@
+id = "verdict-allow-reason"
+incident = "verdict_answer"
+note = "allow (reason) on a verdict question was stored as deny."

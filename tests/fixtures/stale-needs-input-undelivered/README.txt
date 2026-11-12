@@ -1,0 +1,1 @@
+Redacted field shapes copied read-only from polish_final, devbox_finish and devbox_live_search on 2026-10-20. All text, paths, identifiers and environment values replaced; no live records are used by tests. Includes answered-but-undelivered and unanswered blocking questions.

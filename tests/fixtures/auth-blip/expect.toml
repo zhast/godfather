@@ -1,0 +1,14 @@
+failure_class = "auth"
+root_cause = "auth"
+remedy = "resume"
+backoff_secs = 30
+classified_by_secs = 0
+saw_statuses = ["running", "retrying"]
+kill = false
+assess_after_silence = "stall_silent"
+later_action = "escalate"
+later_kill = false
+segment_timeout_root = "segment_timeout"
+prevented = false
+detected = true
+events = ["STATUS running -> retrying: auth", "ESCALATE auth"]

@@ -1,0 +1,3 @@
+id = "stream-devices"
+incident = "stream_devices"
+note = "Real curl probes repeatedly asked for /dev/null writes and shell stderr redirects."

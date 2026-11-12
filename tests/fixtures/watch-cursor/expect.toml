@@ -1,0 +1,10 @@
+root_cause = "watch_cursor"
+prevented = true
+replayed = false
+seen = ["NEEDS_INPUT new question"]
+resumed_empty = true
+unknown_cursor = true
+second_remedy = false
+first_remedy = true
+detected = true
+events = ["DONE old completion", "NEEDS_INPUT new question", "PREVENTED watch_cursor: a new watch starts at the current seq"]

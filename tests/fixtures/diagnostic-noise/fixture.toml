@@ -1,0 +1,3 @@
+id = "diagnostic-noise"
+incident = "diagnostic_noise"
+note = "Watcher reported optional startup diagnostics, Phase 2 no changes and expired tool handles as errors."

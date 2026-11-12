@@ -1,0 +1,44 @@
+[[models]]
+backend = "codex"
+model = "gpt-6.1-sol"
+effort = "high"
+home = "~/.codex-2"
+label = "Codex · company"
+[[models]]
+backend = "agy"
+model = "claude-opus-5-5-high"
+effort = "high"
+[[models]]
+backend = "grok"
+model = "grok-4.7-build-fast"
+effort = "high"
+[[models]]
+backend = "agy"
+model = "gemini-4-argon-high"
+effort = "high"
+[[models]]
+backend = "cursor"
+model = "opus"
+effort = "high"
+[[models]]
+backend = "agy"
+model = "claude-sonnet-5-5-high"
+effort = "high"
+[[models]]
+backend = "agy"
+model = "gpt-oss-120b-medium"
+effort = "medium"
+[[models]]
+backend = "agy"
+model = "gemini-3.8-flash-high"
+effort = "high"
+[[models]]
+backend = "codex"
+model = "backup"
+effort = "high"
+home = "~/.codex-2"
+[[models]]
+backend = "codex"
+model = "gpt-6.1-sol"
+effort = "high"
+home = "~/.codex-3"

@@ -1,0 +1,326 @@
+#!/bin/bash
+# Quota-aware Antigravity launcher. AGY_MODELS overrides the model order.
+MODELS=(
+  gemini-4-argon-high
+  claude-opus-5-5-high
+  gemini-3.8-flash-high
+  claude-sonnet-5-5-high
+  gpt-oss-120b-medium
+)
+
+set -euo pipefail
+# Housekeeping uses the conductor PATH, never worker policy shims.
+if [[ -n ${GODFATHER_ORIGINAL_PATH:-} ]]; then
+  export PATH=$GODFATHER_ORIGINAL_PATH
+else
+  clean_path=''
+  old_ifs=$IFS; IFS=:
+  for entry in $PATH; do
+    if [[ $entry == *.shims && -f $entry/godfather ]]; then continue; fi
+    clean_path=${clean_path:+$clean_path:}$entry
+  done
+  IFS=$old_ifs
+  export PATH=$clean_path
+fi
+case ${BASH_ENV:-} in *.shims/*) unset BASH_ENV ;; esac
+case ${ZDOTDIR:-} in *.shims) unset ZDOTDIR ;; esac
+umask 077
+usage() {
+  cat <<'HELP'
+Usage: CWD=<dir> [MIN_PCT=10] [DRY_RUN=1] agy-run <prompt-file> <name>
+
+Outputs (overwritten per name on real runs):
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.last.md     Replies across segments
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.log         Segment stderr
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.models.log  Quota, routing, exit status
+
+Environment:
+  CWD             Required task working directory (no default).
+  AGENT_RUNS_DIR  Output directory; default: $HOME/.agent-runs (created if missing).
+  ADD_DIRS        Extra workspace directories, colon-separated; empty entries ignored.
+  AGY_EFFORT      Optional explicit reasoning effort.
+  AGY_MODELS      Space-separated model order; overrides the defaults below.
+  MIN_PCT         Minimum remaining quota percentage, 0-100; default: 10.
+  DRY_RUN         Set to 1 to query quota and print the chosen model without a task.
+  Registry: <name>.run.json; inspect with agents-status / agents-watch.
+  Relative paths are resolved from the caller's working directory.
+
+Model order:
+  gemini-4-argon-high -> claude-opus-5-5-high -> gemini-3.8-flash-high
+  -> claude-sonnet-5-5-high -> gpt-oss-120b-medium
+Requires agy on PATH and python3. Quota failures resume on the next eligible
+model; non-quota failures stop. Missing quota fields are treated as available.
+Runs use --dangerously-skip-permissions. Dry runs do not write output files.
+HELP
+}
+
+if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+  usage
+  exit 0
+fi
+if [[ $# != 2 || -z ${CWD:-} ]]; then
+  usage >&2
+  exit 2
+fi
+case $2 in ''|*/*|.|..) echo 'name must be a filename, without slashes' >&2; exit 2 ;; esac
+if [[ ! -d $CWD ]]; then
+  printf 'CWD is not a directory: %s\n' "$CWD" >&2
+  exit 2
+fi
+if [[ ! -r $1 || -d $1 ]]; then
+  printf 'Prompt file is not readable: %s\n' "$1" >&2
+  exit 2
+fi
+# Keep a waiting foreground client for callers, but put the actual launcher
+# (and its supervisor/CLI) beyond the launching terminal's process group.
+if [[ ${GODFATHER_LAUNCHER_PID:-} != "$$" ]]; then
+  exec python3 "$(cd -- "$(dirname -- "$0")" && pwd -P)/godfather_lifecycle.py" launch "$0" "$@"
+fi
+trap '' HUP
+# Resolve paths before changing directories; relative paths use the caller's cwd.
+case $1 in /*) prompt_file=$1 ;; *) prompt_file=$PWD/$1 ;; esac
+CWD=$(cd -- "$CWD" && pwd -P)
+runs_dir=${AGENT_RUNS_DIR:-$HOME/.agent-runs}
+mkdir -p -- "$runs_dir"
+runs_dir=$(cd -- "$runs_dir" && pwd -P)
+base="$runs_dir/$2"
+oversight="$(cd -- "$(dirname -- "$0")" && pwd -P)/agent_oversight.py"
+add_dir_args=(--add-dir "$runs_dir")
+extra_dirs=${ADD_DIRS:-}
+while [[ -n $extra_dirs ]]; do
+  dir=${extra_dirs%%:*}
+  if [[ $extra_dirs == *:* ]]; then extra_dirs=${extra_dirs#*:}; else extra_dirs=''; fi
+  [[ -n $dir ]] || continue
+  if [[ ! -d $dir ]]; then
+    printf 'ADD_DIRS entry is not a directory: %s\n' "$dir" >&2
+    exit 2
+  fi
+  dir=$(cd -- "$dir" && pwd -P)
+  add_dir_args+=(--add-dir "$dir")
+done
+for dependency in agy python3; do
+  if ! command -v "$dependency" >/dev/null 2>&1; then
+    printf 'Required command not found on PATH: %s\n' "$dependency" >&2
+    exit 127
+  fi
+done
+if [[ -n ${AGY_MODELS:-} ]]; then
+  read -r -a MODELS <<< "$AGY_MODELS"
+fi
+MIN_PCT=${MIN_PCT:-10}
+if ! awk -v n="$MIN_PCT" 'BEGIN { exit !(n ~ /^[0-9]+([.][0-9]+)?$/ && n >= 0 && n <= 100) }'; then
+  echo 'MIN_PCT must be a percentage from 0 to 100' >&2
+  exit 2
+fi
+prompt=$(cat -- "$prompt_file")
+cd -- "$CWD"
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/agy-run.XXXXXXXX")
+trap 'rm -rf -- "$tmp"' EXIT
+
+read_usage() {
+  # Shared bounded retry and snapshot logic; failures leave quota unknown/available.
+  usage=$(python3 - "$(dirname -- "$oversight")" <<'PYUSAGE'
+import shutil, sys
+sys.path.insert(0, sys.argv[1])
+from godfather_router import agy_usage
+print(agy_usage(shutil.which('agy')), end='')
+PYUSAGE
+)
+  if [[ -z $usage && ${DRY_RUN:-0} != 1 ]]; then
+    echo 'WARN /usage unavailable after 3 attempts; proceeding with unknown quota.' >> "$base.models.log"
+  fi
+}
+
+# Print all applicable limits and exit nonzero if any is below MIN_PCT.
+model_limits() {
+  printf '%s\n' "$usage" | python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from godfather_router import agy_limits
+ok, reason, blocked = agy_limits(sys.stdin.read(), sys.argv[2], float(sys.argv[3]))
+print(reason)
+sys.exit(0 if ok else 1)
+' "$(dirname -- "$oversight")" "$1" "$MIN_PCT"
+}
+
+record_usage() {
+  printf '\n[%s] /usage %s\n%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$1" "$usage" >> "$base.models.log"
+}
+
+if [[ ${DRY_RUN:-0} != 1 ]]; then
+  python3 "$oversight" begin "$base" agy pending "$prompt_file"
+  # EXIT must preserve status even if quota checks fail between segments.
+  trap 'rc=$?; python3 "$oversight" finish "$base" "$rc" ${registry_quota:+--quota} || rc=$?; rm -rf -- "$tmp"; exit "$rc"' EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  : > "$base.last.md"
+  : > "$base.log"
+  if [[ ${AGENT_NUDGE:-0} != 1 && ${AGENT_ROUTED:-0} != 1 ]]; then : > "$base.models.log"; fi
+fi
+read_usage
+if [[ ${DRY_RUN:-0} == 1 ]]; then
+  skipped=''
+  for model in "${MODELS[@]}"; do
+    if reason=$(model_limits "$model"); then
+      printf 'Chosen model: %s\nWhy: %s\n' "$model" "$reason"
+      [[ -z $skipped ]] || printf 'Skipped:\n%s' "$skipped"
+      exit 0
+    fi
+    skipped+="$model: $reason"$'\n'
+  done
+  printf 'No eligible model at MIN_PCT=%s%%\n%s' "$MIN_PCT" "$skipped"
+  exit 1
+fi
+
+record_usage 'before task'
+conversation=${AGENT_RESUME_ID:-}
+segment=0
+last_rc=1
+for model in "${MODELS[@]}"; do
+  if reason=$(model_limits "$model"); then :; else
+    printf 'Skip %s: %s\n' "$model" "$reason" >> "$base.models.log"
+    continue
+  fi
+  registry_quota=
+  segment=$((segment + 1))
+  printf '\nSegment %s: model=%s conversation=%s\nReason: %s\n' \
+    "$segment" "$model" "${conversation:-new}" "$reason" >> "$base.models.log"
+  record_usage "before segment $segment"
+  args=(--model "$model" --dangerously-skip-permissions "${add_dir_args[@]}")
+  if [[ -n ${AGY_EFFORT:-} ]]; then args+=(--effort "$AGY_EFFORT"); fi
+  if [[ -n $conversation ]]; then
+    args+=(--conversation "$conversation")
+    if [[ ( ${AGENT_NUDGE:-0} == 1 || ${AGENT_RETRY:-0} == 1 ) && $segment == 1 ]]; then
+      segment_prompt=$prompt
+    else
+      segment_prompt=$(python3 - "$base" "$(dirname -- "$oversight")" "$segment" <<'PYRESUME'
+import sys
+sys.path.insert(0, sys.argv[2])
+from agent_oversight import read
+from godfather_supervisor import interruption_prompt
+run = read(sys.argv[1] + '.run.json')
+reason = 'quota' if int(sys.argv[3]) > 1 else run.get('failure_class') or 'resume'
+print(interruption_prompt(run, reason) + 'Continue the task from where you left off')
+PYRESUME
+)
+    fi
+  else
+    segment_prompt=$prompt
+  fi
+
+  cli_log="$base.segment-$segment.cli.log"
+  : > "$cli_log"  # A reused name must never rediscover its previous session.
+  args+=(--log-file "$cli_log")
+  # Snapshot this segment's private log offset for quota classification.
+  python3 - "$cli_log" > "$tmp/before.json" <<'PY'
+import json, sys
+from pathlib import Path
+log = Path(sys.argv[1]).resolve()
+json.dump(dict(log=str(log), offset=log.stat().st_size if log.exists() else 0), sys.stdout)
+PY
+  segment_out="$base.segment-$segment.stdout"
+  segment_err="$base.segment-$segment.stderr"
+  rc=0
+  session_args=()
+  if [[ -n $conversation ]]; then session_args=(--session "$conversation"); fi
+  python3 "$oversight" run --base "$base" --cli agy --model "$model" \
+    --prompt-file "$prompt_file" --stdout "$segment_out" --stderr "$segment_err" \
+    --discovery "$cli_log" ${session_args[@]+"${session_args[@]}"} -- \
+    agy "${args[@]}" -p "$segment_prompt" || rc=$?
+  last_rc=$rc
+  cat "$segment_out" >> "$base.last.md"
+  printf '\n--- segment %s model=%s ---\n' "$segment" "$model" >> "$base.log"
+  cat "$segment_err" >> "$base.log"
+
+  # Capture cli.log BEFORE /usage starts another CLI process and changes its
+  # symlink. Tail only bytes written since this segment began (or its new log).
+  python3 - "$tmp/before.json" "$cli_log" > "$tmp/cli.tail" <<'PY'
+import json, sys
+from pathlib import Path
+before = json.loads(Path(sys.argv[1]).read_text())
+log = Path(sys.argv[2]).resolve()
+if log.is_file():
+    size = log.stat().st_size
+    offset = before['offset'] if str(log) == before['log'] and size >= before['offset'] else 0
+    with log.open('rb') as f:
+        f.seek(max(offset, size - 80000))
+        sys.stdout.write(f.read().decode(errors='replace'))
+PY
+  if [[ -z $conversation ]]; then
+    conversation=$(python3 - "$base.run.json" <<'PYID'
+import json, sys
+print(json.load(open(sys.argv[1])).get('conversation_id') or '')
+PYID
+)
+  fi
+  printf 'Segment %s ended: exit=%s conversation=%s\n' \
+    "$segment" "$rc" "${conversation:-not found}" >> "$base.models.log"
+
+  quota_failure=0
+  # Ignore routine quota-manager info messages; a failed run needs an actual
+  # error mentioning quota/limit/429/exhaustion. Plain stderr errors also count.
+  if [[ $rc != 0 ]] && python3 - "$(dirname -- "$oversight")" "$segment_err" "$tmp/cli.tail" <<'PY'
+import re, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from godfather_errors import classify
+info = re.compile(r'^[IWD]\d{4}\s')
+for filename in sys.argv[2:]:
+    for line in Path(filename).read_text(errors='replace').splitlines():
+        if not info.match(line) and 'context canceled' not in line.lower():
+            failure = classify('agy', line)
+            if failure['category'] == 'quota':
+                sys.exit(0)
+sys.exit(1)
+PY
+  then
+    quota_failure=1
+    registry_quota=1
+    printf 'Quota/rate-limit failure on %s; trying next eligible model.\n' "$model" >> "$base.models.log"
+    python3 - "$(dirname -- "$oversight")" "$model" "$segment_err" "$tmp/cli.tail" <<'PYQUOTA'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from godfather_router import mark_exhausted
+mark_exhausted('agy:' + sys.argv[2], '\n'.join(Path(p).read_text(errors='replace') for p in sys.argv[3:]))
+PYQUOTA
+  fi
+  # The global router owns ranking, cooldowns and the next segment. Preserve
+  # this exact conversation in the registry rather than routing locally.
+  if [[ ${AGENT_ROUTED:-0} == 1 ]]; then
+    echo "exit $rc -> $base.last.md"
+    exit "$rc"
+  fi
+  if ! read_usage; then
+    printf '/usage after segment %s failed\n' "$segment" >> "$base.models.log"
+    exit 1
+  fi
+  record_usage "after segment $segment"
+  if [[ $quota_failure == 1 ]]; then
+    export GODFATHER_QUOTA_FALLBACK=1
+    printf '%s\n' "$usage" | python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from godfather_router import agy_limits, mark_exhausted
+ok, reason, blocked = agy_limits(sys.stdin.read(), sys.argv[2], 0)
+if blocked:
+    mark_exhausted("agy:" + sys.argv[2], blocked)
+' "$(dirname -- "$oversight")" "$model"
+  fi
+  if [[ $rc == 0 ]]; then
+    registry_quota=
+    echo "exit 0 -> $base.last.md"
+    exit 0
+  fi
+  if [[ $quota_failure == 0 ]]; then
+    echo "exit $rc (non-quota failure) -> $base.log" >&2
+    exit "$rc"
+  fi
+  if [[ -z $conversation ]]; then
+    echo 'Cannot resume: no conversation ID was found in the private CLI log.' | tee -a "$base.models.log" >&2
+    exit "$rc"
+  fi
+done
+registry_quota=1
+printf 'No eligible models remain (MIN_PCT=%s%%).\n' "$MIN_PCT" | tee -a "$base.models.log" >&2
+exit "$last_rc"

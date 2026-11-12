@@ -1,0 +1,14 @@
+root_cause = "acceptance_done"
+prevented = true
+failure_class = ""
+remedy = "done"
+classified_by_secs = 0
+saw_statuses = ["running", "done"]
+report_cap_secs = 120
+report_turn_root = "report_turn"
+synthesize_root = "report_timeout"
+synthesized = true
+not_stall = true
+kill = false
+detected = true
+events = ["STATUS running -> done: acceptance_done", "REPORT report_timeout"]

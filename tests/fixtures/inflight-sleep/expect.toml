@@ -1,0 +1,14 @@
+root_cause = "inflight_tool"
+prevented = true
+failure_class = ""
+kill = false
+heal_called = false
+signal = "cpu-active children"
+declared_wait_secs = 180
+healthy_at_secs = 120
+late_failure_class = "stall_silent"
+late_root_cause = "tool_timeout"
+late_with_cpu = ""
+saw_statuses = ["running"]
+detected = true
+events = ["PREVENTED inflight_tool: live children and a declared wait are not a stall"]

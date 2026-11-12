@@ -1,0 +1,9 @@
+root_cause = "verdict_answer"
+prevented = true
+rejected = true
+stored_answer = "allow"
+reason = "the file is ours"
+not_deny = true
+incident_reason = "the file is ours"
+detected = true
+events = ["STATUS running -> needs_input: registry", "STATUS needs_input -> running: registry", "PREVENTED verdict_answer: a reason after allow is not a deny"]

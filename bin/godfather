@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from godfather_router import main
+import sys
+sys.exit(main())

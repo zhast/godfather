@@ -1,0 +1,34 @@
+{
+  "questions": [
+    {
+      "effect": {
+        "targets": [
+          "redacted"
+        ],
+        "effect": "redacted",
+        "verdict": "redacted",
+        "cwd": "redacted",
+        "command": [
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted"
+        ]
+      },
+      "id": "polish_final-q0",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": true,
+      "delivered": false,
+      "answer": "redacted",
+      "asked_at": 1792482336.236783,
+      "answered_at": 1792483328.7977228
+    }
+  ]
+}

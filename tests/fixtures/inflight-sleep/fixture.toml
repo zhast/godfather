@@ -1,0 +1,14 @@
+id = "inflight-sleep"
+cli = "grok"
+incident = "inflight_tool"
+note = "sleep 180 while grader children ran was healed as a stall and the children died with the session."
+
+[clock]
+mode = "synthetic"
+
+[[ps]]
+pid = 20
+ppid = 10
+pcpu = 4.0
+state = "S"
+command = "python3 poll_graders.py"

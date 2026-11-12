@@ -1,0 +1,26 @@
+# Task graph for `godfather plan run examples/plan.toml`.
+# Paths are relative to this file. isolate defaults to true when omitted.
+# merge = true appends an integrate task. It merges isolated branches and does not push.
+schema = 1
+
+[plan]
+name = "example"
+repo = ".."
+merge = false
+container = false
+
+[[tasks]]
+id = "readme"
+brief = "Confirm README.md describes plans, the store, policy, and ranked routing. Do not edit files."
+deps = []
+check = "test -s README.md"
+isolate = false
+task_type = "write"
+
+[[tasks]]
+id = "architecture"
+brief = "Confirm ARCHITECTURE.md describes the plan file. Do not edit files."
+deps = ["readme"]
+check = "test -s ARCHITECTURE.md"
+isolate = false
+task_type = "write"

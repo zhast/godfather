@@ -1,0 +1,3 @@
+id = "deploy-help"
+incident = "help_only"
+note = "acme apps deploy --help matched a deploy rule."

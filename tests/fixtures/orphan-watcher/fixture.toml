@@ -1,0 +1,3 @@
+id = "orphan-watcher"
+incident = "orphan_watcher"
+note = "Stopping a conductor left agents-watch running, and it kept healing with the config it had loaded."

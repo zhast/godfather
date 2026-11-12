@@ -1,0 +1,7 @@
+root_cause = "metadata_chmod"
+prevented = true
+verdict = "allow"
+effect = "change file metadata"
+not_delete = true
+detected = true
+events = ["PREVENTED metadata_chmod: chmod is metadata on a file this run created"]

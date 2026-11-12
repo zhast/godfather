@@ -1,0 +1,7 @@
+{"type":"system","subtype":"init","session_id":"chat-cursor-123","model":"Opus"}
+{"type":"thinking","subtype":"delta","text":"Inspecting"}
+{"type":"tool_call","subtype":"started","call_id":"t1","tool_call":{"shellToolCall":{"args":{"command":"rg --files"}}}}
+{"type":"tool_call","subtype":"completed","call_id":"t1","tool_call":{"shellToolCall":{"args":{"command":"rg --files"},"result":{"exitCode":0}}}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Done"}]}}
+{"type":"usage","subtype":"model_call","model_call_id":"m1","usage":{"inputTokens":20,"outputTokens":4}}
+{"type":"result","subtype":"success","is_error":false,"result":"Done","session_id":"chat-cursor-123","usage":{"inputTokens":20,"outputTokens":4}}

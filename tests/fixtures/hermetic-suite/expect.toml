@@ -1,0 +1,8 @@
+root_cause = "hermetic_suite"
+prevented = true
+install_launched = false
+doctor_launched = false
+hint = true
+live_probes = ["codex login status", "agy -p /usage", "cursor-agent status", "cursor-agent about"]
+detected = true
+events = ["PREVENTED hermetic_suite: install and doctor do not launch a model CLI"]

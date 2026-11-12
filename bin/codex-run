@@ -1,0 +1,161 @@
+#!/bin/bash
+# Codex launcher; Python handles registry and child-process supervision.
+# CODEX_SANDBOX defaults to danger-full-access. Godfather's policy guard
+# (command shims, the ask/deny flow, and the audit log) is the safety layer.
+# CODEX_SANDBOX=workspace-write adds Codex's own sandbox for users who want
+# both, and keeps network_access=true. read-only is also allowed.
+set -euo pipefail
+# Housekeeping uses the conductor PATH, never worker policy shims.
+if [[ -n ${GODFATHER_ORIGINAL_PATH:-} ]]; then
+  export PATH=$GODFATHER_ORIGINAL_PATH
+else
+  clean_path=''
+  old_ifs=$IFS; IFS=:
+  for entry in $PATH; do
+    if [[ $entry == *.shims && -f $entry/godfather ]]; then continue; fi
+    clean_path=${clean_path:+$clean_path:}$entry
+  done
+  IFS=$old_ifs
+  export PATH=$clean_path
+fi
+case ${BASH_ENV:-} in *.shims/*) unset BASH_ENV ;; esac
+case ${ZDOTDIR:-} in *.shims) unset ZDOTDIR ;; esac
+umask 077
+
+usage() {
+  cat <<'HELP'
+Usage: CWD=<dir> codex-run <prompt-file> <name>
+
+Outputs (overwritten per name):
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.last.md     Final reply
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.log         CLI stdout/stderr
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.models.log  Model, settings, exit status
+
+Environment:
+  CWD             Required task working directory (no default).
+  AGENT_RUNS_DIR  Output directory; default: $HOME/.agent-runs (created if missing).
+  ADD_DIRS        Extra workspace directories, colon-separated; empty entries ignored.
+  Registry: <name>.run.json; inspect with agents-status / agents-watch.
+  Relative paths are resolved from the caller's working directory.
+
+  CODEX_HOME       Account home; default: $HOME/.codex. Retained on resume.
+  CODEX_BIN        Override binary; otherwise PATH, then ChatGPT.app.
+  CODEX_MODEL      Explicit model, or auto (default): prefer gpt-6.1-sol when
+                   listed in the local model catalog, else use CLI default.
+                   Set to default to always use the installed CLI default.
+  CODEX_EFFORT     Reasoning effort; default: high.
+  CODEX_SERVICE_TIER  Service tier; default: default.
+  CODEX_SANDBOX    Sandbox mode; default: danger-full-access.
+                   Allowed: danger-full-access, workspace-write, read-only.
+                   Godfather's policy guard is the safety layer. Set
+                   workspace-write to add Codex's own sandbox (network stays on).
+Settings: configurable model/tier/effort, fast mode off,
+  CODEX_SANDBOX (default danger-full-access), approval_policy=never,
+  --skip-git-repo-check, --json.
+Binary discovery: CODEX_BIN, codex on PATH, then ChatGPT.app.
+Exit status: the Codex CLI status (2 for invalid launcher arguments).
+HELP
+}
+
+if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+  usage
+  exit 0
+fi
+if [[ $# != 2 || -z ${CWD:-} ]]; then
+  usage >&2
+  exit 2
+fi
+case $2 in ''|*/*|.|..) echo 'name must be a filename, without slashes' >&2; exit 2 ;; esac
+if [[ ! -d $CWD ]]; then
+  printf 'CWD is not a directory: %s\n' "$CWD" >&2
+  exit 2
+fi
+if [[ ! -r $1 || -d $1 ]]; then
+  printf 'Prompt file is not readable: %s\n' "$1" >&2
+  exit 2
+fi
+# Godfather's policy guard is the safety layer. Codex's sandbox is optional.
+sandbox=${CODEX_SANDBOX:-danger-full-access}
+case $sandbox in
+  danger-full-access|workspace-write|read-only) ;;
+  *) printf 'CODEX_SANDBOX must be danger-full-access, workspace-write, or read-only: %s\n' "$sandbox" >&2; exit 2 ;;
+esac
+sandbox_args=(-s "$sandbox")
+if [[ $sandbox == workspace-write ]]; then
+  sandbox_args+=(-c sandbox_workspace_write.network_access=true)
+fi
+# Keep a waiting foreground client for callers, but put the actual launcher
+# (and its supervisor/CLI) beyond the launching terminal's process group.
+if [[ ${GODFATHER_LAUNCHER_PID:-} != "$$" ]]; then
+  exec python3 "$(cd -- "$(dirname -- "$0")" && pwd -P)/godfather_lifecycle.py" launch "$0" "$@"
+fi
+trap '' HUP
+# Resolve paths before changing directories; relative paths use the caller's cwd.
+case $1 in /*) prompt_file=$1 ;; *) prompt_file=$PWD/$1 ;; esac
+CWD=$(cd -- "$CWD" && pwd -P)
+runs_dir=${AGENT_RUNS_DIR:-$HOME/.agent-runs}
+mkdir -p -- "$runs_dir"
+runs_dir=$(cd -- "$runs_dir" && pwd -P)
+base="$runs_dir/$2"
+oversight="$(cd -- "$(dirname -- "$0")" && pwd -P)/agent_oversight.py"
+add_dir_args=(--add-dir "$runs_dir")
+extra_dirs=${ADD_DIRS:-}
+while [[ -n $extra_dirs ]]; do
+  dir=${extra_dirs%%:*}
+  if [[ $extra_dirs == *:* ]]; then extra_dirs=${extra_dirs#*:}; else extra_dirs=''; fi
+  [[ -n $dir ]] || continue
+  if [[ ! -d $dir ]]; then
+    printf 'ADD_DIRS entry is not a directory: %s\n' "$dir" >&2
+    exit 2
+  fi
+  dir=$(cd -- "$dir" && pwd -P)
+  add_dir_args+=(--add-dir "$dir")
+done
+
+CODEX=$(python3 "$oversight" find-codex) || exit 127
+model=$(python3 "$oversight" codex-model)
+effort=${CODEX_EFFORT:-high}
+tier=${CODEX_SERVICE_TIER:-default}
+model_args=()
+if [[ $model != default ]]; then model_args=(-m "$model"); fi
+python3 "$oversight" begin "$base" codex "$model" "$prompt_file"
+trap 'rc=$?; python3 "$oversight" finish "$base" "$rc" || rc=$?; exit "$rc"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+: > "$base.last.md"
+if [[ ${AGENT_NUDGE:-0} != 1 && ${AGENT_ROUTED:-0} != 1 ]]; then : > "$base.models.log"; fi
+printf '[%s] model=%s service_tier=%s reasoning=%s fast_mode=false sandbox=%s\n' \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$model" "$tier" "$effort" "$sandbox" >> "$base.models.log"
+session_args=()
+exec_args=(exec)
+cwd_args=(-C "$CWD")
+if [[ -n ${AGENT_RESUME_ID:-} ]]; then
+  exec_args+=(resume "$AGENT_RESUME_ID")
+  session_args=(--session "$AGENT_RESUME_ID")
+  # exec resume has no --add-dir, -s, or -C. The supervisor starts
+  # the CLI in CWD; supported config overrides carry sandbox and roots.
+  cwd_args=()
+  sandbox_args=(-c "sandbox_mode=\"$sandbox\"")
+  if [[ $sandbox == workspace-write ]]; then
+    sandbox_args+=(-c sandbox_workspace_write.network_access=true)
+  fi
+  roots=$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1::2]))' "${add_dir_args[@]:1}")
+  add_dir_args=(-c "sandbox_workspace_write.writable_roots=$roots")
+fi
+rc=0
+python3 "$oversight" run --base "$base" --cli codex --model "$model" \
+  --prompt-file "$prompt_file" --stdout "$base.log" --stderr "$base.log" \
+  ${session_args[@]+"${session_args[@]}"} -- "$CODEX" "${exec_args[@]}" --json \
+  ${model_args[@]+"${model_args[@]}"} \
+  -c "service_tier=$tier" \
+  -c "model_reasoning_effort=$effort" \
+  -c approval_policy='"never"' \
+  --disable fast_mode \
+  "${sandbox_args[@]}" \
+  ${add_dir_args[@]+"${add_dir_args[@]}"} \
+  ${cwd_args[@]+"${cwd_args[@]}"} --skip-git-repo-check \
+  -o "$base.last.md" \
+  - || rc=$?
+printf '[%s] exit=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$rc" >> "$base.models.log"
+printf 'exit %s -> %s\n' "$rc" "$base.last.md"
+exit "$rc"

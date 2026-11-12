@@ -1,0 +1,3 @@
+id = "watch-cursor"
+incident = "watch_cursor"
+note = "A restarted watcher read .events.jsonl from the beginning and repeated remedies."

@@ -1,0 +1,3 @@
+id = "learned-rule-cli-tree"
+incident = "learned_rule"
+note = "allow+remember on chmod +x ~/.grok/long-running-background-tasks/watch_index.sh used to learn only that filename."

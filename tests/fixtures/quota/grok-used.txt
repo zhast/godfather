@@ -1,0 +1,6 @@
+Context usage  Usage limit  Session info
+Weekly limit (SuperGrok Heavy)
+█████████░░░░░░░░░░░░░░░░░░░░░  31%
+Resets: November 12, 14:30
+Session usage: no model calls yet in this session.
+╰──── Grok 4.7 (high) ─╯

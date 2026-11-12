@@ -1,0 +1,10 @@
+root_cause = "codex_sandbox_ps_git"
+prevented = true
+sandbox = "danger-full-access"
+git = "read-write"
+nested_sandbox_exec = false
+allows_ps = true
+git_writable = true
+git_status = 0
+detected = true
+events = ["PREVENTED codex_sandbox_ps_git: full access allows ps and worktree .git"]

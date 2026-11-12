@@ -1,0 +1,3 @@
+id = "git-restore-staged"
+incident = "index_only"
+note = "git restore --staged :/ was denied as a secret write. Unstaging only touches the index."

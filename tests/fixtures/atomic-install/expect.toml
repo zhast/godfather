@@ -1,0 +1,7 @@
+root_cause = "atomic_install"
+prevented = true
+old_inode_kept = true
+schema_exit = 2
+schema_inode_kept = true
+detected = true
+events = ["PREVENTED atomic_install: running launcher kept its inode"]

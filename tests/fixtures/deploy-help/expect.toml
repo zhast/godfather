@@ -1,0 +1,8 @@
+root_cause = "help_only"
+prevented = true
+verdict = "allow"
+effect = "read files"
+deploy_verdict = "ask"
+shim_mode = "audit"
+detected = true
+events = ["PREVENTED help_only: help probe is not a deploy"]

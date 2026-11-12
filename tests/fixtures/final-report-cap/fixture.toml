@@ -1,0 +1,8 @@
+id = "final-report-cap"
+cli = "grok"
+incident = "final_report"
+note = "After the commit and a passing check, the agent sat in thought writing the report."
+
+[clock]
+mode = "synthetic"
+step_secs = 30

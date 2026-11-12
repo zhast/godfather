@@ -1,0 +1,5 @@
+{"cli": "agy", "message": "Unable to start git event watcher"}
+{"cli": "codex", "message": "Phase 2 no changes"}
+{"cli": "codex", "message": "MCP mcp.example.com unreachable"}
+{"cli": "grok", "message": "write_stdin failed: Unknown process id"}
+{"cli": "codex", "message": "permission denied"}

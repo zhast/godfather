@@ -1,0 +1,9 @@
+root_cause = "index_only"
+prevented = true
+verdict = "allow"
+effect = "update the git index"
+targets = []
+worktree_verdict = "deny"
+worktree_hits_secret = true
+detected = true
+events = ["PREVENTED index_only: unstaging does not write the worktree"]

@@ -1,0 +1,178 @@
+#!/bin/bash
+# Grok Build launcher with native streaming progress.
+set -euo pipefail
+# Housekeeping uses the conductor PATH, never worker policy shims.
+if [[ -n ${GODFATHER_ORIGINAL_PATH:-} ]]; then
+  export PATH=$GODFATHER_ORIGINAL_PATH
+else
+  clean_path=''
+  old_ifs=$IFS; IFS=:
+  for entry in $PATH; do
+    if [[ $entry == *.shims && -f $entry/godfather ]]; then continue; fi
+    clean_path=${clean_path:+$clean_path:}$entry
+  done
+  IFS=$old_ifs
+  export PATH=$clean_path
+fi
+case ${BASH_ENV:-} in *.shims/*) unset BASH_ENV ;; esac
+case ${ZDOTDIR:-} in *.shims) unset ZDOTDIR ;; esac
+umask 077
+
+usage() {
+  cat <<'HELP'
+Usage: CWD=<dir> grok-run <prompt-file> <name>
+
+Outputs (overwritten per name):
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.last.md     Final reply
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.log         CLI stderr, failed results
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.json        CLI JSON result
+  ${AGENT_RUNS_DIR:-$HOME/.agent-runs}/<name>.models.log  Model, effort, session ID, exit status
+
+Environment:
+  CWD             Required task working directory (no default).
+  AGENT_RUNS_DIR  Output directory; default: $HOME/.agent-runs (created if missing).
+  GROK_MODEL      Model; default: grok-4.7-build-fast (same model as grok-4.7,
+                  faster infrastructure, ~2x quota from the same usage allowance).
+  GROK_EFFORT     Reasoning effort; default: high (must be supported by the model).
+  GROK_HOME       Account home; default: $HOME/.grok. Retained on resume.
+                  Binary discovery still uses PATH, including ~/.grok/downloads.
+  ADD_DIRS        Extra writable roots, colon-separated; compiled into native
+                  Edit/Write allow rules (sandbox off; no extra-workspace flag).
+  Registry: <name>.run.json; inspect with agents-status / agents-watch.
+  Relative paths are resolved from the caller's working directory.
+
+No automatic model fallback or retry. All failures stop immediately.
+On quota/rate-limit failure:
+  Grok quota exhausted; check /usage at grok.com or in an interactive grok session
+Quota: /usage is an interactive account-usage modal, not a headless quota query.
+  grok usage <session-id> reports persisted tokens/cost, not remaining allowance.
+  No preflight low-quota check or MIN_PCT setting is available.
+Settings: --prompt-file (full agentic task, then exit), --always-approve,
+  --no-plan, --sandbox off, --output-format streaming-json (also saved as .stream.jsonl). No extra-workspace flag exists;
+  sandbox off allows filesystem access outside CWD, subject to Grok policy.
+Requires authenticated grok on PATH (tested with 1.0.62), Bash, and python3.
+Exit status: the Grok CLI status (1 for invalid output; 2 for invalid arguments).
+HELP
+}
+
+if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+  usage
+  exit 0
+fi
+if [[ $# != 2 || -z ${CWD:-} ]]; then
+  usage >&2
+  exit 2
+fi
+case $2 in ''|*/*|.|..) echo 'name must be a filename, without slashes' >&2; exit 2 ;; esac
+if [[ ! -d $CWD ]]; then
+  printf 'CWD is not a directory: %s\n' "$CWD" >&2
+  exit 2
+fi
+if [[ ! -r $1 || -d $1 ]]; then
+  printf 'Prompt file is not readable: %s\n' "$1" >&2
+  exit 2
+fi
+extra_dirs=${ADD_DIRS:-}
+while [[ -n $extra_dirs ]]; do
+  dir=${extra_dirs%%:*}
+  if [[ $extra_dirs == *:* ]]; then extra_dirs=${extra_dirs#*:}; else extra_dirs=''; fi
+  [[ -n $dir ]] || continue
+  if [[ ! -d $dir ]]; then
+    printf 'ADD_DIRS entry is not a directory: %s\n' "$dir" >&2
+    exit 2
+  fi
+done
+for dependency in grok python3; do
+  if ! command -v "$dependency" >/dev/null 2>&1; then
+    printf 'Required command not found on PATH: %s\n' "$dependency" >&2
+    exit 127
+  fi
+done
+# Resolve the installed executable before changing cwd or adding worker shims.
+# Account homes store auth and sessions; they do not relocate the installation.
+grok_binary=$(command -v grok)
+# Keep a waiting foreground client for callers, but put the actual launcher
+# (and its supervisor/CLI) beyond the launching terminal's process group.
+if [[ ${GODFATHER_LAUNCHER_PID:-} != "$$" ]]; then
+  exec python3 "$(cd -- "$(dirname -- "$0")" && pwd -P)/godfather_lifecycle.py" launch "$0" "$@"
+fi
+trap '' HUP
+# Resolve paths before changing directories; relative paths use the caller's cwd.
+case $1 in /*) prompt_file=$1 ;; *) prompt_file=$PWD/$1 ;; esac
+CWD=$(cd -- "$CWD" && pwd -P)
+runs_dir=${AGENT_RUNS_DIR:-$HOME/.agent-runs}
+mkdir -p -- "$runs_dir"
+runs_dir=$(cd -- "$runs_dir" && pwd -P)
+base="$runs_dir/$2"
+oversight="$(cd -- "$(dirname -- "$0")" && pwd -P)/agent_oversight.py"
+model=${GROK_MODEL:-grok-4.7-build-fast}
+effort=${GROK_EFFORT:-high}
+# Assign a unique session ID for tracking this run.
+session=${AGENT_RESUME_ID:-$(python3 -c 'import uuid; print(uuid.uuid4())')}
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/grok-run.XXXXXXXX")
+trap 'rm -rf -- "$tmp"' EXIT
+python3 "$oversight" begin "$base" grok "$model" "$prompt_file"
+trap 'rc=$?; python3 "$oversight" finish "$base" "$rc" ${registry_quota:+--quota} || rc=$?; rm -rf -- "$tmp"; exit "$rc"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+: > "$base.last.md"
+if [[ ${AGENT_NUDGE:-0} != 1 && ${AGENT_ROUTED:-0} != 1 ]]; then : > "$base.models.log"; fi
+: > "$base.log"
+: > "$base.json"
+printf '[%s] session=%s reasoning=%s quota_preflight=unavailable\n' \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session" "$effort" >> "$base.models.log"
+cd -- "$CWD"
+args=(--cwd "$CWD" --model "$model" --reasoning-effort "$effort"
+      --always-approve --no-plan --sandbox off --output-format streaming-json --prompt-file "$prompt_file")
+if [[ -n ${AGENT_RESUME_ID:-} ]]; then args+=(--resume "$session"); else args+=(--session-id "$session"); fi
+printf '[%s] model=%s reasoning=%s\n' \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$model" "$effort" >> "$base.models.log"
+rc=0
+python3 "$oversight" run --base "$base" --cli grok --model "$model" \
+  --prompt-file "$prompt_file" --stdout "$base.stream.jsonl" --stderr "$tmp/stderr" \
+  --session "$session" -- "$grok_binary" "${args[@]}" </dev/null || rc=$?
+python3 "$oversight" grok-result "$base" 2>> "$tmp/stderr" || { if [[ $rc == 0 ]]; then rc=1; fi; }
+cat "$tmp/stderr" >> "$base.log"
+
+# Detect quota failures only in structured errors and this invocation's stderr;
+# successful assistant prose mentioning quota is still a successful result.
+verdict=0
+python3 - "$(dirname -- "$oversight")" "$base.json" "$tmp/stderr" "$rc" "$base.last.md" 2>> "$base.log" <<'PY' || verdict=$?
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from godfather_errors import classify
+result_path, stderr_path, rc, reply_path = sys.argv[2:]
+errors = [Path(stderr_path).read_text(errors='replace')]
+try:
+    result = json.loads(Path(result_path).read_text())
+    if not isinstance(result, dict):
+        raise ValueError('expected a JSON object')
+except (ValueError, OSError) as exc:
+    print(f'Invalid Grok JSON output: {exc}', file=sys.stderr)
+    result = {}
+if result.get('type') == 'error' or result.get('is_error') is True:
+    errors.extend(result.get('errors') or [result])
+elif int(rc) == 0 and isinstance(result.get('text'), str):
+    text = result['text']
+    Path(reply_path).write_text(text + ('\n' if text and not text.endswith('\n') else ''))
+    sys.exit(0)
+else:
+    print('Grok failed or returned no final text.', file=sys.stderr)
+sys.exit(10 if any(classify('grok', error)['category'] == 'quota' for error in errors) else 11)
+PY
+if [[ $rc == 0 && $verdict != 0 ]]; then rc=1; fi
+printf '[%s] exit=%s result=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+  "$rc" "$verdict" >> "$base.models.log"
+if [[ $rc == 0 ]]; then
+  printf 'exit 0 -> %s\n' "$base.last.md"
+  exit 0
+fi
+printf '\nFailed JSON result:\n' >> "$base.log"
+cat "$base.json" >> "$base.log"
+if [[ $verdict == 10 ]]; then
+  registry_quota=1
+  echo 'Grok quota exhausted; check /usage at grok.com or in an interactive grok session' >&2
+fi
+printf 'exit %s -> %s\n' "$rc" "$base.last.md"
+exit "$rc"

@@ -1,0 +1,2 @@
+I1019 13:41:19.036885 461 http_helpers.go:349] URL: https://daily-cloudcode-pa.googleapis.com/v1internal:streamGenerateContent?alt=sse
+I1019 13:41:19.100000 461 cache.go:1] refresh cache in background

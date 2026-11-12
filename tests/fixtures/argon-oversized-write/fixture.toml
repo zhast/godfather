@@ -1,0 +1,12 @@
+id = "argon-oversized-write"
+cli = "agy"
+model = "gemini-4-argon"
+incident = "oversized_write"
+note = "A single write frame larger than the line cap used to kill the parser."
+
+[clock]
+mode = "synthetic"
+step_secs = 1
+
+[stream]
+max_line_bytes = 48

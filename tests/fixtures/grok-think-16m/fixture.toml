@@ -1,0 +1,10 @@
+id = "grok-think-16m"
+cli = "grok"
+model = "grok-4.7"
+incident = "thinking_without_tool"
+note = "Recorded as godfather_phaseC.stream.jsonl. Thought frames do not reset the tool clock."
+
+[clock]
+mode = "synthetic"
+step_secs = 30
+think_span_secs = 960

@@ -1,0 +1,71 @@
+{
+  "name": "polish_final",
+  "cli": "grok",
+  "model": "redacted",
+  "cwd": "redacted",
+  "prompt_file": "redacted",
+  "pid": 987654321,
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "status": "needs_input",
+  "exit_code": 0,
+  "ended_at": "2026-01-01T00:00:00+00:00",
+  "session_id": "redacted",
+  "conversation_id": null,
+  "progress_paths": [],
+  "progress_offsets": {},
+  "run_id": "polish_final",
+  "launcher_pid": 987654321,
+  "launcher_identity": "fixture dead process",
+  "codex_stream": false,
+  "healing_parent": null,
+  "launcher_env": {},
+  "questions": [
+    {
+      "effect": {
+        "targets": [
+          "redacted"
+        ],
+        "effect": "redacted",
+        "verdict": "redacted",
+        "cwd": "redacted",
+        "command": [
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted"
+        ]
+      },
+      "id": "polish_final-q0",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": true,
+      "delivered": false,
+      "answer": "redacted",
+      "asked_at": 1792482336.236783,
+      "answered_at": 1792483328.7977228
+    }
+  ],
+  "discovery_path": "redacted",
+  "diagnostic_paths": [],
+  "segment_id": "polish_final-segment",
+  "segment_started_at": "2026-01-01T00:00:00+00:00",
+  "model_stream_at": 0,
+  "supervisor_pid": 987654321,
+  "pid_identity": "fixture dead process",
+  "child_exit_code": 0,
+  "storage_path": "redacted",
+  "last_action": "redacted",
+  "last_progress_at": 1792483333.6330009,
+  "steps": 1,
+  "tokens_in": 881,
+  "tokens_cached": null,
+  "tokens_out": 703,
+  "errors": [],
+  "killed": false
+}

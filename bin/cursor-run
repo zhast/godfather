@@ -1,0 +1,129 @@
+#!/bin/bash
+# Cursor Build launcher with native streaming progress.
+set -euo pipefail
+# Housekeeping uses the conductor PATH, never worker policy shims.
+if [[ -n ${GODFATHER_ORIGINAL_PATH:-} ]]; then
+  export PATH=$GODFATHER_ORIGINAL_PATH
+else
+  clean_path=''
+  old_ifs=$IFS; IFS=:
+  for entry in $PATH; do
+    if [[ $entry == *.shims && -f $entry/godfather ]]; then continue; fi
+    clean_path=${clean_path:+$clean_path:}$entry
+  done
+  IFS=$old_ifs
+  export PATH=$clean_path
+fi
+case ${BASH_ENV:-} in *.shims/*) unset BASH_ENV ;; esac
+case ${ZDOTDIR:-} in *.shims) unset ZDOTDIR ;; esac
+umask 077
+
+usage() {
+  echo 'Usage: CWD=<dir> cursor-run <prompt-file> <name>'
+  echo 'CURSOR_MODEL (auto), CURSOR_EFFORT (informational), CURSOR_HOME, CURSOR_AGENT_BIN, CURSOR_MODE (ask|plan), ADD_DIRS, AGENT_RUNS_DIR.'
+  echo 'Artifacts: .last.md .log .json .models.log .stream.jsonl; AGENT_RESUME_ID resumes the saved chat.'
+}
+
+if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+  usage
+  exit 0
+fi
+if [[ $# != 2 || -z ${CWD:-} ]]; then
+  usage >&2
+  exit 2
+fi
+case $2 in ''|*/*|.|..) echo 'name must be a filename, without slashes' >&2; exit 2 ;; esac
+if [[ ! -d $CWD ]]; then
+  printf 'CWD is not a directory: %s\n' "$CWD" >&2
+  exit 2
+fi
+if [[ ! -r $1 || -d $1 ]]; then
+  printf 'Prompt file is not readable: %s\n' "$1" >&2
+  exit 2
+fi
+extra_dirs=${ADD_DIRS:-}
+while [[ -n $extra_dirs ]]; do
+  dir=${extra_dirs%%:*}
+  if [[ $extra_dirs == *:* ]]; then extra_dirs=${extra_dirs#*:}; else extra_dirs=''; fi
+  [[ -n $dir ]] || continue
+  if [[ ! -d $dir ]]; then
+    printf 'ADD_DIRS entry is not a directory: %s\n' "$dir" >&2
+    exit 2
+  fi
+done
+for dependency in python3; do
+  if ! command -v "$dependency" >/dev/null 2>&1; then
+    printf 'Required command not found on PATH: %s\n' "$dependency" >&2
+    exit 127
+  fi
+done
+# Resolve the installed executable before changing cwd or adding worker shims.
+# Account homes store auth and sessions; they do not relocate the installation.
+cursor_binary=$(python3 "$(cd -- "$(dirname -- "$0")" && pwd -P)/agent_oversight.py" find-cursor) || exit 127
+# Keep a waiting foreground client for callers, but put the actual launcher
+# (and its supervisor/CLI) beyond the launching terminal's process group.
+if [[ ${GODFATHER_LAUNCHER_PID:-} != "$$" ]]; then
+  exec python3 "$(cd -- "$(dirname -- "$0")" && pwd -P)/godfather_lifecycle.py" launch "$0" "$@"
+fi
+trap '' HUP
+# Resolve paths before changing directories; relative paths use the caller's cwd.
+case $1 in /*) prompt_file=$1 ;; *) prompt_file=$PWD/$1 ;; esac
+CWD=$(cd -- "$CWD" && pwd -P)
+runs_dir=${AGENT_RUNS_DIR:-$HOME/.agent-runs}
+mkdir -p -- "$runs_dir"
+runs_dir=$(cd -- "$runs_dir" && pwd -P)
+base="$runs_dir/$2"
+oversight="$(cd -- "$(dirname -- "$0")" && pwd -P)/agent_oversight.py"
+model=${CURSOR_MODEL:-auto}
+effort=${CURSOR_EFFORT:-high}
+model=$(python3 - "$(dirname -- "$oversight")" "$cursor_binary" "$model" <<'PYCODE'
+import os, sys
+sys.path.insert(0, sys.argv[1])
+from godfather_cursor import resolve
+print(resolve(dict(model=sys.argv[3], fast=os.getenv('CURSOR_FAST', 'true') != 'false', allow_no_zdr=os.getenv('CURSOR_ALLOW_NO_ZDR') == 'true'), sys.argv[2]))
+PYCODE
+)
+# Discover the actual chat ID from system/init; resumes pass the saved ID.
+session=${AGENT_RESUME_ID:-}
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/cursor-run.XXXXXXXX")
+trap 'rm -rf -- "$tmp"' EXIT
+python3 "$oversight" begin "$base" cursor "$model" "$prompt_file"
+trap 'rc=$?; python3 "$oversight" finish "$base" "$rc" ${registry_quota:+--quota} || rc=$?; rm -rf -- "$tmp"; exit "$rc"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+: > "$base.last.md"
+if [[ ${AGENT_NUDGE:-0} != 1 && ${AGENT_ROUTED:-0} != 1 ]]; then : > "$base.models.log"; fi
+: > "$base.log"
+: > "$base.json"
+printf '[%s] session=%s reasoning=%s quota_preflight=unavailable\n' \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$session" "$effort" >> "$base.models.log"
+cd -- "$CWD"
+args=(-p --output-format stream-json --stream-partial-output --model "$model"
+      --trust --workspace "$CWD")
+case ${CURSOR_MODE:-} in
+  ask|plan) args+=(--mode "$CURSOR_MODE" --sandbox enabled) ;;
+  "") args+=(--force --sandbox disabled) ;;
+  *) echo "CURSOR_MODE must be ask or plan" >&2; exit 2 ;;
+esac
+if [[ -n ${AGENT_RESUME_ID:-} ]]; then args+=(--resume "$session"); fi
+extra_dirs=${ADD_DIRS:-}
+while [[ -n $extra_dirs ]]; do
+  dir=${extra_dirs%%:*}
+  if [[ $extra_dirs == *:* ]]; then extra_dirs=${extra_dirs#*:}; else extra_dirs=''; fi
+  [[ -z $dir ]] || args+=(--add-dir "$dir")
+done
+printf '[%s] model=%s reasoning=%s\n' \
+  "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$model" "$effort" >> "$base.models.log"
+rc=0
+python3 "$oversight" run --base "$base" --cli cursor --model "$model" \
+  --prompt-file "$prompt_file" --stdout "$base.stream.jsonl" --stderr "$tmp/stderr" \
+  --session "$session" -- "$cursor_binary" "${args[@]}" </dev/null || rc=$?
+result_rc=0
+python3 "$(dirname -- "$oversight")/godfather_cursor_result.py" "$base" "$tmp/stderr" "$rc" || result_rc=$?
+if [[ $result_rc == 10 ]]; then registry_quota=1; fi
+if [[ $rc == 0 && $result_rc != 0 ]]; then rc=1; fi
+cat "$tmp/stderr" >> "$base.log"
+
+printf '[%s] exit=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$rc" >> "$base.models.log"
+printf 'exit %s -> %s\n' "$rc" "$base.last.md"
+exit "$rc"

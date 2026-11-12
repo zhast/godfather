@@ -1,0 +1,3 @@
+id = "committed-idle"
+incident = "committed_idle"
+note = "Grok and Codex stayed alive for minutes after committing and emitting their final report."

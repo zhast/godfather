@@ -1,0 +1,2 @@
+{"type":"tool_call","toolName":"run_terminal_command","toolCallId":"commit","status":"completed","rawInput":{"command":"git commit -m done"}}
+{"type":"thought","data":"drafting the final report"}

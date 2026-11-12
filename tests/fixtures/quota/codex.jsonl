@@ -1,0 +1,3 @@
+{"timestamp":"2026-11-11T17:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":99,"window_minutes":10080,"resets_at":1794743064}}}}
+{"timestamp":"2026-11-11T18:00:00Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"limit_id":"codex","primary":{"used_percent":3.0,"window_minutes":10080,"resets_at":1794743064},"secondary":{"used_percent":12.0,"window_minutes":300,"resets_at":1794427200},"credits":{"has_credits":true,"unlimited":false,"access_token":"must-not-appear"},"plan_type":"self_serve_business_prolite","email":"never@example.com"}}}
+{"truncated"

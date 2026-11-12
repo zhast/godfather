@@ -1,0 +1,43 @@
+{
+  "questions": [
+    {
+      "effect": {
+        "targets": [
+          "redacted"
+        ],
+        "effect": "redacted",
+        "verdict": "redacted",
+        "cwd": "redacted",
+        "command": [
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted"
+        ]
+      },
+      "id": "devbox_finish-q0",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": true,
+      "delivered": false,
+      "answer": "redacted",
+      "asked_at": 1792490643.4011462,
+      "answered_at": 1792490944.508669
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+prevented = true
+levels = ["WARNING", "INFO", "WARNING", "WARNING", "ERROR"]

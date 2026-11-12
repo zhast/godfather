@@ -1,0 +1,82 @@
+{
+  "name": "devbox_finish",
+  "cli": "grok",
+  "model": "redacted",
+  "cwd": "redacted",
+  "prompt_file": "redacted",
+  "pid": 987654321,
+  "started_at": "2026-01-01T00:00:00+00:00",
+  "status": "needs_input",
+  "exit_code": 0,
+  "ended_at": "2026-01-01T00:00:00+00:00",
+  "session_id": "redacted",
+  "conversation_id": null,
+  "progress_paths": [],
+  "progress_offsets": {},
+  "run_id": "devbox_finish",
+  "launcher_pid": 987654321,
+  "launcher_identity": "fixture dead process",
+  "codex_stream": false,
+  "healing_parent": null,
+  "launcher_env": {},
+  "questions": [
+    {
+      "effect": {
+        "targets": [
+          "redacted"
+        ],
+        "effect": "redacted",
+        "verdict": "redacted",
+        "cwd": "redacted",
+        "command": [
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted",
+          "redacted"
+        ]
+      },
+      "id": "devbox_finish-q0",
+      "question": "redacted",
+      "options": "redacted",
+      "blocking": true,
+      "waiting": true,
+      "delivered": false,
+      "answer": "redacted",
+      "asked_at": 1792490643.4011462,
+      "answered_at": 1792490944.508669
+    }
+  ],
+  "discovery_path": "redacted",
+  "diagnostic_paths": [],
+  "segment_id": "devbox_finish-segment",
+  "segment_started_at": "2026-01-01T00:00:00+00:00",
+  "model_stream_at": 0,
+  "supervisor_pid": 987654321,
+  "pid_identity": "fixture dead process",
+  "child_exit_code": 0,
+  "storage_path": "redacted",
+  "last_action": "redacted",
+  "last_progress_at": 1792490962.5265465,
+  "steps": 4,
+  "tokens_in": 5176,
+  "tokens_cached": null,
+  "tokens_out": 1743,
+  "errors": [
+    "redacted"
+  ],
+  "killed": false
+}

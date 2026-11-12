@@ -1,0 +1,8 @@
+id = "auth-blip"
+cli = "grok"
+incident = "auth_blip"
+note = "An authentication error left the process up and the old healer waited on silence."
+
+[clock]
+mode = "synthetic"
+step_secs = 0

@@ -1,0 +1,12 @@
+failure_class = "broken_stream"
+root_cause = "broken_stream"
+remedy = "resume_chunked"
+backoff_secs = 2
+classified_by_secs = 1
+saw_statuses = ["running", "retrying"]
+segment_status = "broken_stream"
+partial_pending = true
+kill = false
+prevented = false
+detected = true
+events = ["STATUS running -> retrying: broken_stream"]

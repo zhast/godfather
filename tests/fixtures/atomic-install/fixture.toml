@@ -1,0 +1,3 @@
+id = "atomic-install"
+incident = "atomic_install"
+note = "Replacing a live launcher in place changed the inode under a running interpreter."

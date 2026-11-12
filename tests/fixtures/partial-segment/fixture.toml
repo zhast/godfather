@@ -1,0 +1,4 @@
+id = "partial-segment"
+cli = "grok"
+incident = "partial_segment"
+note = "A short last.md or a mid-line stream used to look like completion."

@@ -1,0 +1,3 @@
+id = "hermetic-suite"
+incident = "hermetic_suite"
+note = "tests/smoke.sh ran install.sh, whose last step agent_oversight.py doctor ran agy -p /usage and opened the Antigravity app."

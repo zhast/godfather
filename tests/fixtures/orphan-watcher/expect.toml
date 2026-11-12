@@ -1,0 +1,9 @@
+root_cause = "orphan_watcher"
+prevented = true
+roles = ["heal", "observe"]
+observe_message = true
+parent_exits = true
+stdout_exits = true
+config_reread = true
+detected = true
+events = ["PREVENTED orphan_watcher: one healer, and the watcher stops when its output or parent is gone"]

@@ -1,0 +1,7 @@
+{"type":"tool_call","toolCallId":"call-c4e226fa-f100-4709-b193-5e8d0fdd67a4-0","title":"list_dir","kind":"list","status":"pending","toolName":"list_dir","rawInput":{"target_directory":"/work/GitHub/godfather"},"content":[],"locations":[]}
+{"type":"tool_call_update","toolCallId":"call-c4e226fa-f100-4709-b193-5e8d0fdd67a4-0","status":"completed","content":[],"rawOutput":{"type":"ListDir"},"locations":[{"path":"/work"}]}
+{"type":"tool_call","toolCallId":"call-file-1","title":"search_replace","kind":"edit","status":"pending","toolName":"search_replace","rawInput":{"file_path":"/work/bin/godfather_store.py","old_string":"a","new_string":"b"},"content":[],"locations":[]}
+{"type":"tool_call_update","toolCallId":"call-file-1","status":"completed","content":[],"rawOutput":{},"locations":[{"path":"/work/bin/godfather_store.py"}]}
+{"type":"text","data":"I'll"}
+{"type":"usage","messageId":"1","usage":{"input_tokens":11083,"output_tokens":280,"cache_read_input_tokens":10112,"cache_creation_input_tokens":0,"reasoning_tokens":210}}
+{"type":"end","stopReason":"end_turn","usage":{"input_tokens":72959,"output_tokens":24008,"cache_read_input_tokens":662144,"cache_creation_input_tokens":0}}

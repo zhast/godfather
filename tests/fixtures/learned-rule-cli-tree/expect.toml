@@ -1,0 +1,9 @@
+root_cause = "learned_rule"
+prevented = true
+rule_args = ["+x"]
+covers_tree = true
+other_verdict = "allow"
+other_flags_verdict = "ask"
+summary_visible = true
+detected = true
+events = ["STATUS running -> needs_input: registry", "STATUS needs_input -> running: registry", "PREVENTED learned_rule: same binary and flags under the CLI tree"]

@@ -1,0 +1,2 @@
+["curl", "-o", "/dev/null", "-w", "%{http_code}", "https://example.test"]
+["zsh", "-c", "curl -w \"%{http_code}\" https://example.test 2>/dev/null"]
